@@ -439,7 +439,7 @@
 
         /* --- ESTILOS PARA O AUTOCOMPLETE GLOBAL --- */
         #autocomplete-suggestions {
-            position: absolute; /* ALTERADO: Revertido para 'absolute' */
+            position: absolute;
             background-color: var(--input-bg-color);
             border: 1px solid var(--primary-color);
             border-top: none;
@@ -449,6 +449,7 @@
             overflow-y: auto;
             display: none;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            width: 325px;
         }
 
         .suggestion-item {
@@ -502,6 +503,7 @@
             background-color: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             justify-content: center;
+            /* align-items: center; Removido para permitir o ajuste da posição vertical */
             overflow-y: auto;
             padding: 20px;
         }
@@ -516,9 +518,9 @@
             width: 90%;
             max-width: 500px;
             gap: 20px;
-            max-height: 90vh; 
-            overflow-y: auto; 
-            position: relative; 
+            max-height: 90vh; /* Altura máxima para caber na tela */
+            overflow-y: auto; /* Rolagem interna */
+            position: relative; /* Necessário para posicionar o botão de fechar */
         }
 
         .image-modal img {
@@ -667,15 +669,6 @@
     </div>
 
     <div class="tabs">
-        <span class="tab-item" data-tab="treino-a">
-            <a href="#" class="tab-link active" onclick="showTab('treino-a')">A (Costas)</a>
-        </span>
-        <span class="tab-item" data-tab="treino-b">
-            <a href="#" class="tab-link" onclick="showTab('treino-b')">B (Perna)</a>
-        </span>
-        <span class="tab-item" data-tab="treino-c">
-            <a href="#" class="tab-link" onclick="showTab('treino-c')">C (Peito)</a>
-        </span>
     </div>
 
     <div class="container" id="exercise-container">
@@ -716,10 +709,11 @@
     <div id="autocomplete-suggestions"></div>
 
     <script>
-        let exerciciosList = []; 
+        let exerciciosList = []; // Inicia como um array vazio
         let currentTab = 'treino-a';
         let isEditing = false;
         let sortableInstance = null;
+        let tabToEdit = null; // Nova variável de estado para controlar qual aba está sendo editada
 
         let workouts = {
             'treino-a': JSON.parse(localStorage.getItem('treino-a')) || [],
@@ -744,6 +738,7 @@
             };
         }
         
+        // Função para carregar os dados do JSON
         async function carregarExercicios() {
             try {
                 const response = await fetch('exercicios_completo.json');
@@ -752,6 +747,7 @@
                 }
                 exerciciosList = await response.json();
                 console.log("Exercícios carregados com sucesso!");
+                // Após carregar os dados, inicia a aplicação
                 iniciarApp();
             } catch (error) {
                 console.error("Não foi possível carregar o arquivo de exercícios:", error);
@@ -786,6 +782,27 @@
             saveTabNames();
         }
 
+        // *** NOVA FUNÇÃO PARA GERENCIAR CLIQUES NAS ABAS ***
+        function handleTabClick(tabId) {
+            if (!isEditing) {
+                // Comportamento normal: apenas mostra a aba
+                showTab(tabId);
+                return;
+            }
+
+            // Estamos no modo de edição
+            if (tabId !== currentTab) {
+                // Se clicar em uma aba DIFERENTE, muda para ela
+                tabToEdit = null; // Reseta o estado de edição
+                showTab(tabId);
+            } else {
+                // Se clicar na aba ATUAL, habilita a edição do nome
+                tabToEdit = tabId;
+                renderTabs(); // Re-renderiza para mostrar o campo de input
+            }
+        }
+
+        // *** LÓGICA DE RENDERIZAÇÃO DAS ABAS ATUALIZADA ***
         function renderTabs() {
             const tabsContainer = document.querySelector('.tabs');
             tabsContainer.innerHTML = '';
@@ -796,23 +813,31 @@
                 tabItem.dataset.tab = tabId;
 
                 let tabContent;
-                if (isEditing) {
+                if (isEditing && tabId === tabToEdit) {
+                    // Se estiver no modo de edição E esta for a aba selecionada para editar, mostra um input
                     tabContent = document.createElement('input');
                     tabContent.type = 'text';
                     tabContent.value = tabNames[tabId];
                     tabContent.className = 'tab-link';
-                    tabContent.onblur = () => updateTabName(tabContent, tabId);
+                    tabContent.onblur = () => {
+                        updateTabName(tabContent, tabId);
+                        tabToEdit = null; // Sai do modo de edição da aba
+                        renderTabs(); // Re-renderiza para voltar a ser um link
+                    };
                     tabContent.onkeydown = (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            tabContent.blur();
+                            tabContent.blur(); // Salva ao pressionar Enter
                         }
                     };
+                    // Foca automaticamente no campo de input
+                    setTimeout(() => tabContent.focus(), 0);
                 } else {
+                    // Em todos os outros casos, mostra um link normal
                     tabContent = document.createElement('a');
                     tabContent.href = '#';
                     tabContent.className = 'tab-link';
-                    tabContent.onclick = () => showTab(tabId);
+                    tabContent.onclick = () => handleTabClick(tabId); // Usa o novo gerenciador de cliques
                     tabContent.textContent = tabNames[tabId];
                 }
 
@@ -928,6 +953,7 @@
 
         function handleEditSave() {
             isEditing = !isEditing;
+            tabToEdit = null; // Reseta o estado de edição ao salvar ou cancelar
 
             if (!isEditing) {
                 saveWorkout();
@@ -1159,13 +1185,8 @@
 
         function showTab(tabName) {
             currentTab = tabName;
-
-            document.querySelectorAll('.tab-link').forEach(tab => {
-                tab.classList.remove('active');
-            });
-
-            document.querySelector(`.tab-item[data-tab="${tabName}"] .tab-link`).classList.add('active');
-
+            tabToEdit = null; // Garante que o modo de edição de nome é resetado ao trocar de aba
+            
             isEditing = false;
             autocompleteSuggestions.style.display = 'none';
 
@@ -1174,9 +1195,10 @@
             updateButtonState();
             localStorage.setItem('lastActiveTab', tabName);
         }
-        
-        // --- LÓGICA DO AUTOCOMPLETE CORRIGIDA ---
+
+        // --- LÓGICA DO AUTOCOMPLETE GLOBAL ATUALIZADA ---
         function setupAutocomplete() {
+            // Função auxiliar para reposicionar a caixa de sugestões
             function updateAutocompletePosition() {
                 if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
                     const rect = currentActiveInput.getBoundingClientRect();
@@ -1188,16 +1210,16 @@
 
             const handleInput = debounce((event) => {
                 const inputText = event.target.value.toLowerCase();
-                updateAutocompletePosition(); 
+                updateAutocompletePosition(); // Garante que a posição está correta ao digitar
 
-                if (inputText.length < 2) {
+                if (inputText.length < 1) { // MUDANÇA: Ativado com 1 ou mais caracteres
                     autocompleteSuggestions.style.display = 'none';
                     return;
                 }
 
                 const filteredExercises = exerciciosList.filter(ex =>
                     ex.nome.toLowerCase().includes(inputText)
-                ).slice(0, 15);
+                ); // MUDANÇA: .slice(0, 15) removido para mostrar todos os resultados
 
                 if (filteredExercises.length > 0) {
                     const suggestionsHTML = filteredExercises.map(ex => `
@@ -1209,26 +1231,18 @@
 
                     autocompleteSuggestions.innerHTML = suggestionsHTML;
                     autocompleteSuggestions.style.display = 'block';
-
-                    // --- CORREÇÃO: Rola a página para a lista de sugestões ficar visível ---
-                    setTimeout(() => {
-                        autocompleteSuggestions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }, 50); // Pequeno delay para garantir que o elemento foi renderizado
-                    // --- FIM DA CORREÇÃO ---
-
                 } else {
                     autocompleteSuggestions.style.display = 'none';
                 }
-            }, 300);
+            }, 100); // MUDANÇA: Debounce time alterado para 100ms
 
-            // Mantém a lista na posição correta durante a rolagem manual
+            // Adiciona o "ouvinte" de rolagem na página inteira
             window.addEventListener('scroll', updateAutocompletePosition, true);
-            window.addEventListener('resize', updateAutocompletePosition, true);
 
             document.querySelectorAll('.editable-name').forEach(input => {
                 input.addEventListener('focus', (event) => {
                     currentActiveInput = event.target;
-                    updateAutocompletePosition();
+                    updateAutocompletePosition(); // Posiciona corretamente ao focar
                 });
 
                 input.addEventListener('input', handleInput);
@@ -1267,7 +1281,7 @@
                  }
             });
         }
-        
+        // Chama a função para carregar os exercícios quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', carregarExercicios);
 
     </script>
