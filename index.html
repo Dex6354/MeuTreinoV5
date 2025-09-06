@@ -686,6 +686,19 @@
         </div>
     </div>
 
+    <div class="modal" id="edit-image-modal">
+        <div class="modal-content">
+            <h2>Editar URL da Imagem</h2>
+            <div class="form-group">
+                <label for="image-url-input">URL da Imagem</label>
+                <input type="text" id="image-url-input" placeholder="https://exemplo.com/imagem.gif">
+                <input type="hidden" id="editing-exercise-index">
+            </div>
+            <button class="btn" onclick="saveImageChange()">Salvar</button>
+            <button class="btn" style="background-color: #555; margin-top: 8px;" onclick="closeEditImageModal()">Cancelar</button>
+        </div>
+    </div>
+
     <footer class="footer">
         Feito por quem treina, para quem treina. 💪❤️
     </footer>
@@ -713,7 +726,7 @@
         let currentTab = 'treino-a';
         let isEditing = false;
         let sortableInstance = null;
-        let tabToEdit = null; // Nova variável de estado para controlar qual aba está sendo editada
+        let tabToEdit = null; 
 
         let workouts = {
             'treino-a': JSON.parse(localStorage.getItem('treino-a')) || [],
@@ -738,7 +751,6 @@
             };
         }
         
-        // Função para carregar os dados do JSON
         async function carregarExercicios() {
             try {
                 const response = await fetch('exercicios_completo.json');
@@ -747,7 +759,6 @@
                 }
                 exerciciosList = await response.json();
                 console.log("Exercícios carregados com sucesso!");
-                // Após carregar os dados, inicia a aplicação
                 iniciarApp();
             } catch (error) {
                 console.error("Não foi possível carregar o arquivo de exercícios:", error);
@@ -769,7 +780,7 @@
             if (savedTabNames) tabNames = savedTabNames;
 
             const lastActiveTab = localStorage.getItem('lastActiveTab');
-            showTab(lastActiveTab || 'treino-a');
+            showTab(lastActiveTab || 'treino-a', true);
             updateLastWorkoutInfo();
         }
 
@@ -782,27 +793,21 @@
             saveTabNames();
         }
 
-        // *** NOVA FUNÇÃO PARA GERENCIAR CLIQUES NAS ABAS ***
         function handleTabClick(tabId) {
             if (!isEditing) {
-                // Comportamento normal: apenas mostra a aba
                 showTab(tabId);
                 return;
             }
 
-            // Estamos no modo de edição
             if (tabId !== currentTab) {
-                // Se clicar em uma aba DIFERENTE, muda para ela
-                tabToEdit = null; // Reseta o estado de edição
+                tabToEdit = null;
                 showTab(tabId);
             } else {
-                // Se clicar na aba ATUAL, habilita a edição do nome
                 tabToEdit = tabId;
-                renderTabs(); // Re-renderiza para mostrar o campo de input
+                renderTabs(); 
             }
         }
 
-        // *** LÓGICA DE RENDERIZAÇÃO DAS ABAS ATUALIZADA ***
         function renderTabs() {
             const tabsContainer = document.querySelector('.tabs');
             tabsContainer.innerHTML = '';
@@ -814,30 +819,27 @@
 
                 let tabContent;
                 if (isEditing && tabId === tabToEdit) {
-                    // Se estiver no modo de edição E esta for a aba selecionada para editar, mostra um input
                     tabContent = document.createElement('input');
                     tabContent.type = 'text';
                     tabContent.value = tabNames[tabId];
                     tabContent.className = 'tab-link';
                     tabContent.onblur = () => {
                         updateTabName(tabContent, tabId);
-                        tabToEdit = null; // Sai do modo de edição da aba
-                        renderTabs(); // Re-renderiza para voltar a ser um link
+                        tabToEdit = null;
+                        renderTabs();
                     };
                     tabContent.onkeydown = (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            tabContent.blur(); // Salva ao pressionar Enter
+                            tabContent.blur();
                         }
                     };
-                    // Foca automaticamente no campo de input
                     setTimeout(() => tabContent.focus(), 0);
                 } else {
-                    // Em todos os outros casos, mostra um link normal
                     tabContent = document.createElement('a');
                     tabContent.href = '#';
                     tabContent.className = 'tab-link';
-                    tabContent.onclick = () => handleTabClick(tabId); // Usa o novo gerenciador de cliques
+                    tabContent.onclick = () => handleTabClick(tabId);
                     tabContent.textContent = tabNames[tabId];
                 }
 
@@ -953,7 +955,7 @@
 
         function handleEditSave() {
             isEditing = !isEditing;
-            tabToEdit = null; // Reseta o estado de edição ao salvar ou cancelar
+            tabToEdit = null;
 
             if (!isEditing) {
                 saveWorkout();
@@ -1037,7 +1039,7 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="video-placeholder" onclick="expandImage('${workout.image || defaultImage}', '${workout.name}')">
+                    <div class="video-placeholder" onclick="handleImageClick(this, '${workout.image || defaultImage}', '${workout.name}')">
                         <img class="exercise-image" src="${workout.image || defaultImage}" alt="${workout.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="error-message">No image</div>
                     </div>
@@ -1073,6 +1075,50 @@
             if(isEditingMode) {
                 setupAutocomplete();
             }
+        }
+        
+        // *** NOVA FUNÇÃO PARA GERENCIAR O CLIQUE NA IMAGEM ***
+        function handleImageClick(element, src, exerciseName) {
+            if (isEditing) {
+                const card = element.closest('.exercise-card');
+                const cardIndex = Array.from(card.parentNode.children).indexOf(card);
+                const currentUrl = workouts[currentTab][cardIndex].image;
+                openEditImageModal(cardIndex, currentUrl);
+            } else {
+                expandImage(src, exerciseName);
+            }
+        }
+
+        // *** NOVAS FUNÇÕES PARA O MODAL DE EDIÇÃO DE IMAGEM ***
+        function openEditImageModal(index, url) {
+            const modal = document.getElementById('edit-image-modal');
+            const urlInput = document.getElementById('image-url-input');
+            const indexInput = document.getElementById('editing-exercise-index');
+            
+            urlInput.value = url;
+            indexInput.value = index;
+            modal.style.display = 'flex';
+        }
+
+        function closeEditImageModal() {
+            const modal = document.getElementById('edit-image-modal');
+            modal.style.display = 'none';
+        }
+
+        function saveImageChange() {
+            const urlInput = document.getElementById('image-url-input');
+            const indexInput = document.getElementById('editing-exercise-index');
+            
+            const newUrl = urlInput.value;
+            const index = indexInput.value;
+            
+            if (index !== null && index !== '') {
+                workouts[currentTab][index].image = newUrl;
+                saveWorkout();
+                renderWorkouts(workouts[currentTab]); // Re-renderiza para mostrar a nova imagem
+            }
+            
+            closeEditImageModal();
         }
 
         function setupSortable() {
@@ -1183,11 +1229,14 @@
             input.click();
         }
 
-        function showTab(tabName) {
+        // *** FUNÇÃO showTab ATUALIZADA ***
+        function showTab(tabName, isInitialLoad = false) {
             currentTab = tabName;
-            tabToEdit = null; // Garante que o modo de edição de nome é resetado ao trocar de aba
             
-            isEditing = false;
+            if (!isInitialLoad) { 
+                tabToEdit = null;
+            }
+            
             autocompleteSuggestions.style.display = 'none';
 
             renderTabs();
@@ -1196,9 +1245,8 @@
             localStorage.setItem('lastActiveTab', tabName);
         }
 
-        // --- LÓGICA DO AUTOCOMPLETE GLOBAL ATUALIZADA ---
+
         function setupAutocomplete() {
-            // Função auxiliar para reposicionar a caixa de sugestões
             function updateAutocompletePosition() {
                 if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
                     const rect = currentActiveInput.getBoundingClientRect();
@@ -1210,16 +1258,16 @@
 
             const handleInput = debounce((event) => {
                 const inputText = event.target.value.toLowerCase();
-                updateAutocompletePosition(); // Garante que a posição está correta ao digitar
+                updateAutocompletePosition();
 
-                if (inputText.length < 1) { // MUDANÇA: Ativado com 1 ou mais caracteres
+                if (inputText.length < 1) { 
                     autocompleteSuggestions.style.display = 'none';
                     return;
                 }
 
                 const filteredExercises = exerciciosList.filter(ex =>
                     ex.nome.toLowerCase().includes(inputText)
-                ); // MUDANÇA: .slice(0, 15) removido para mostrar todos os resultados
+                ); 
 
                 if (filteredExercises.length > 0) {
                     const suggestionsHTML = filteredExercises.map(ex => `
@@ -1234,15 +1282,14 @@
                 } else {
                     autocompleteSuggestions.style.display = 'none';
                 }
-            }, 100); // MUDANÇA: Debounce time alterado para 100ms
+            }, 100); 
 
-            // Adiciona o "ouvinte" de rolagem na página inteira
             window.addEventListener('scroll', updateAutocompletePosition, true);
 
             document.querySelectorAll('.editable-name').forEach(input => {
                 input.addEventListener('focus', (event) => {
                     currentActiveInput = event.target;
-                    updateAutocompletePosition(); // Posiciona corretamente ao focar
+                    updateAutocompletePosition();
                 });
 
                 input.addEventListener('input', handleInput);
@@ -1281,7 +1328,6 @@
                  }
             });
         }
-        // Chama a função para carregar os exercícios quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', carregarExercicios);
 
     </script>
