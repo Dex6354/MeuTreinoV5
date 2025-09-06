@@ -439,7 +439,7 @@
 
         /* --- ESTILOS PARA O AUTOCOMPLETE GLOBAL --- */
         #autocomplete-suggestions {
-            position: fixed; /* MANTIDO 'fixed' para funcionar com teclado móvel */
+            position: absolute; /* ALTERADO: Revertido para 'absolute' */
             background-color: var(--input-bg-color);
             border: 1px solid var(--primary-color);
             border-top: none;
@@ -1180,8 +1180,8 @@
             function updateAutocompletePosition() {
                 if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
                     const rect = currentActiveInput.getBoundingClientRect();
-                    autocompleteSuggestions.style.top = `${rect.bottom}px`;
-                    autocompleteSuggestions.style.left = `${rect.left}px`;
+                    autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
+                    autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
                     autocompleteSuggestions.style.width = `${rect.width}px`;
                 }
             }
@@ -1209,19 +1209,20 @@
 
                     autocompleteSuggestions.innerHTML = suggestionsHTML;
                     autocompleteSuggestions.style.display = 'block';
+
+                    // --- CORREÇÃO: Rola a página para a lista de sugestões ficar visível ---
+                    setTimeout(() => {
+                        autocompleteSuggestions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 50); // Pequeno delay para garantir que o elemento foi renderizado
+                    // --- FIM DA CORREÇÃO ---
+
                 } else {
                     autocompleteSuggestions.style.display = 'none';
                 }
             }, 300);
 
-            // --- CORREÇÃO: Esconde a lista de sugestões ao rolar a página ---
-            window.addEventListener('scroll', () => {
-                if (autocompleteSuggestions.style.display === 'block') {
-                    autocompleteSuggestions.style.display = 'none';
-                }
-            }, true);
-            // --- FIM DA CORREÇÃO ---
-            
+            // Mantém a lista na posição correta durante a rolagem manual
+            window.addEventListener('scroll', updateAutocompletePosition, true);
             window.addEventListener('resize', updateAutocompletePosition, true);
 
             document.querySelectorAll('.editable-name').forEach(input => {
